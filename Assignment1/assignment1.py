@@ -86,17 +86,18 @@ def write_results(fastqfile, csvfile, results):
             for count, average_scores in enumerate(results):
                 writer.writerow([fastqfile[count].name, ""])
                 for line_index, result in enumerate(average_scores):
-                    writer.writerow([line_index, result])
+                    writer.writerow([line_index+1, result])
     else:
         for count, average_scores in enumerate(results):
             print(fastqfile[count].name)
             for line_index, result in enumerate(average_scores):
-                print(line_index, result)
+                print(line_index+1, result)
 
 
 if __name__ == '__main__':
+    test = []
     args = argument_parser()
-    with mp.Pool(processes=2) as pool:
+    with mp.Pool(processes=args.n) as pool:
         cols = fastq_reader(args)
         results = pool.map(column_reader, cols)
     write_results(args.fastq_files, args.csvfile, results)
