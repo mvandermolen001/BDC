@@ -1,10 +1,14 @@
 import csv
 import multiprocessing as mp
 import argparse as ap
-from itertools import islice
+from itertools import islice, zip_longest
 
 
-def main():
+def argument_parser():
+    """
+    Parse command line
+    :return: args: the arguments that were given to the program
+    """
     parser = ap.ArgumentParser(description="Script for assignment 1 of Big Data Computing")
     parser.add_argument("-n", action="store",
                         dest="n", required=True, type=int,
@@ -18,34 +22,81 @@ def main():
     return args
 
 
-def fastq_parser(fastqfile):
-    results = {}
-    with open(fastqfile.name, 'r') as fastq:
-        # With fastq as the iterator, walk through the lines starting at 3 and taking steps of 4
-        for line in islice(fastq, 0, None, 4):
-            line = line.strip()
-            for index, character in enumerate(line):
-                if index in results.keys():
-                    results[index].append(ord(character) - 33)
-                else:
-                    results[index] = [ord(character) - 33]
-        average_scores = {item_key: sum(item_value) / len(item_value) for (item_key, item_value) in results.items()}
+def fastq_reader(args):
+    """
+    Read each fastq file and return a list of lists containing the characters per column
+    for each file
+    :param args: the arguments that were given to the program from the command line
+    :return: A list of lists containing the quality characters per column
+    """
+    col_lines = []
+    for fastqfile in args.fastq_files:
+        with open(fastqfile.name, 'r') as fastq:
+            col_lines.append(fastq_lines(fastq))
+    return col_lines
+
+
+def fastq_lines(fastq):
+    """
+    Gather the quality lines from the fastq file and return a column read through from the fastq file
+    :param fastq: an open fastq file
+    :return: the columns from the fastq file
+    """
+    # Read through the fastq file by quality lines.
+    rows = [line.strip() for line in islice(fastq, 3, None, 4)]
+    # zip_longest to prevent loss of characters because fastq files can be differing lengths
+    cols = [list(col) for col in zip_longest(*rows, fillvalue=None)]
+    return cols
+
+
+def column_reader(columns):
+    """
+    Get the average score of each column of a fastq file
+    :param columns: A column of quality character of a fastq file
+    :return: the average score of each column of a fastq file
+    """
+    average_scores = []
+    for character_column in columns:
+        average_scores.append(average_phred_score(character_column))
     return average_scores
 
 
+def average_phred_score(quality_line):
+    """
+    Calculate the average quality score of a list of phred score characters
+    :param quality_line: a list containing phred score character
+    :return: the average score of a list of phred score characters
+    """
+    phred_score_line = [ord(character) - 33 for character in quality_line if character is not None]
+    average_scores = sum(phred_score_line) / len(phred_score_line)
+    return average_scores
 
-if __name__ == "__main__":
-    args = main()
-    with mp.Pool(processes=args.n) as p:
-        pass
-        # for fastqfile in args.fastq_files:
-        #     average_scores = fastq_parser(fastqfile)
-        #     if args.csvfile:
-        #         with open(args.csvfile.name, 'w') as csv_file:
-        #             writer = csv.writer(csv_file)
-        #             writer.writerow([fastqfile.name, ""])
-        #             for key, value in average_scores.items():
-        #                 writer.writerow([key, value])
-        #         args.csvfile.close()
-        #     else:
-        #         print(fastqfile.name + "\n" + average_scores + "\n")
+
+def write_results(fastqfile, csvfile, results):
+    """
+    Write results to screen or, if a csv file is given, write to a csv file.
+    :param fastqfile: the fastq_files arguments
+    :param csvfile: the csv_file argument
+    :param results: the average scores of each column in a fastq file
+    """
+    if args.csvfile:
+        with open(csvfile.name, 'w') as csv_file:
+            writer = csv.writer(csv_file)
+            for count, average_scores in enumerate(results):
+                writer.writerow([fastqfile[count].name, ""])
+                for line_index, result in enumerate(average_scores):
+                    writer.writerow([line_index, result])
+    else:
+        for count, average_scores in enumerate(results):
+            print(fastqfile[count].name)
+            for line_index, result in enumerate(average_scores):
+                print(line_index, result)
+
+
+if __name__ == '__main__':
+    args = argument_parser()
+    with mp.Pool(processes=2) as pool:
+        cols = fastq_reader(args)
+        results = pool.map(column_reader, cols)
+    write_results(args.fastq_files, args.csvfile, results)
+
