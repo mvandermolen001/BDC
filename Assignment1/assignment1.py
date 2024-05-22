@@ -24,8 +24,8 @@ def argument_parser():
 
 def fastq_reader(args):
     """
-    Read each fastq file and return a list of lists containing the characters per column
-    for each file
+    Read each fastq file and return a list of lists containing the
+    characters per column for each file
     :param args: the arguments that were given to the program from the command line
     :return: A list of lists containing the quality characters per column
     """
@@ -38,7 +38,8 @@ def fastq_reader(args):
 
 def fastq_lines(fastq):
     """
-    Gather the quality lines from the fastq file and return a column read through from the fastq file
+    Gather the quality lines from the fastq file and return a column read
+    through from the fastq file
     :param fastq: an open fastq file
     :return: the columns from the fastq file
     """
