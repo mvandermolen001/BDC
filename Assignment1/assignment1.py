@@ -28,7 +28,6 @@ def argument_parser():
                         help="CSV file to save the output to. The default is output to the terminal with STDOUT")
     parser.add_argument("fastq_files", action="store", type=ap.FileType('r'), nargs='+',
                         help="The FASTQ files to process. Expected at least 1 Illumina fastq file")
-    # args = parser.parse_args()
     return parser.parse_args()
 
 
@@ -58,15 +57,6 @@ def fastq_lines(fastq):
     # zip_longest to prevent loss of characters because fastq files can be differing lengths
     columns = [list(col) for col in zip_longest(*rows, fillvalue=None)]
     return columns
-
-
-def column_reader(columns):
-    """
-    Get the average score of each column of a fastq file
-    :param columns: A column of quality character of a fastq file
-    :return: the average score of each column of a fastq file
-    """
-    return average_phred_score(columns)
 
 
 def average_phred_score(quality_line):
@@ -107,5 +97,5 @@ if __name__ == '__main__':
     with mp.Pool(processes=args.n) as pool:
         cols_per_file = fastq_reader(args)
         for column in cols_per_file:
-            accumulated_results.append(pool.map(column_reader, column))
+            accumulated_results.append(pool.map(average_phred_score, column))
     write_results(args.fastq_files, args.csvfile, accumulated_results)
