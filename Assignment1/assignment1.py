@@ -1,3 +1,13 @@
+"""
+A script containing all the necessary functions to process a fastq file through the
+multiprocessing module.
+
+The arguments that are passed to this script are the following:
+- n: amount of cores used by the program
+- fastq_file: the name of the fastq file(s)
+-o: the name of the csv output file (optional)
+"""
+
 import csv
 import multiprocessing as mp
 import argparse as ap
@@ -18,19 +28,19 @@ def argument_parser():
                         help="CSV file to save the output to. The default is output to the terminal with STDOUT")
     parser.add_argument("fastq_files", action="store", type=ap.FileType('r'), nargs='+',
                         help="The FASTQ files to process. Expected at least 1 Illumina fastq file")
-    args = parser.parse_args()
-    return args
+    # args = parser.parse_args()
+    return parser.parse_args()
 
 
-def fastq_reader(args):
+def fastq_reader(arguments):
     """
     Read each fastq file and return a list of lists containing the
     characters per column for each file
-    :param args: the arguments that were given to the program from the command line
+    :param arguments: the arguments that were given to the program from the command line
     :return: A list of lists containing the quality characters per column
     """
     col_lines = []
-    for fastqfile in args.fastq_files:
+    for fastqfile in arguments.fastq_files:
         with open(fastqfile.name, 'r') as fastq:
             col_lines.append(fastq_lines(fastq))
     return col_lines
@@ -46,8 +56,8 @@ def fastq_lines(fastq):
     # Read through the fastq file by quality lines.
     rows = [line.strip() for line in islice(fastq, 3, None, 4)]
     # zip_longest to prevent loss of characters because fastq files can be differing lengths
-    cols = [list(col) for col in zip_longest(*rows, fillvalue=None)]
-    return cols
+    columns = [list(col) for col in zip_longest(*rows, fillvalue=None)]
+    return columns
 
 
 def column_reader(columns):
@@ -56,10 +66,7 @@ def column_reader(columns):
     :param columns: A column of quality character of a fastq file
     :return: the average score of each column of a fastq file
     """
-    average_scores = []
-    for character_column in columns:
-        average_scores.append(average_phred_score(character_column))
-    return average_scores
+    return average_phred_score(columns)
 
 
 def average_phred_score(quality_line):
@@ -95,10 +102,10 @@ def write_results(fastqfile, csvfile, results):
 
 
 if __name__ == '__main__':
-    test = []
+    accumulated_results = []
     args = argument_parser()
     with mp.Pool(processes=args.n) as pool:
-        cols = fastq_reader(args)
-        results = pool.map(column_reader, cols)
-    write_results(args.fastq_files, args.csvfile, results)
-
+        cols_per_file = fastq_reader(args)
+        for column in cols_per_file:
+            accumulated_results.append(pool.map(column_reader, column))
+    write_results(args.fastq_files, args.csvfile, accumulated_results)
