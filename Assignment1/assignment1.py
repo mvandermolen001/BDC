@@ -94,8 +94,8 @@ def write_results(fastqfile, csvfile, results):
 if __name__ == '__main__':
     accumulated_results = []
     args = argument_parser()
+    cols_per_file = fastq_reader(args)
     with mp.Pool(processes=args.n) as pool:
-        cols_per_file = fastq_reader(args)
         for column in cols_per_file:
             accumulated_results.append(pool.map(average_phred_score, column))
     write_results(args.fastq_files, args.csvfile, accumulated_results)
