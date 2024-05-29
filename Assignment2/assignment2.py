@@ -127,7 +127,7 @@ def runserver(fn, data):
     """
     # Start a shared manager server and access its queues
     args = command_line_args()
-    manager = make_server_manager(PORTNUM, b'whathasitgotinitspocketsesss?')
+    manager = make_server_manager(args.port, AUTHKEY)
     shared_job_q = manager.get_job_q()
     shared_result_q = manager.get_result_q()
     collected_column_length = []
@@ -240,7 +240,8 @@ def runclient(num_processes):
     Run the client with the number of processors specified
     :param num_processes: Number of processes to use
     """
-    manager = make_client_manager(IP, PORTNUM, AUTHKEY)
+    args = command_line_args()
+    manager = make_client_manager(args.host, args.port, AUTHKEY)
     job_q = manager.get_job_q()
     result_q = manager.get_result_q()
     run_workers(job_q, result_q, num_processes)
