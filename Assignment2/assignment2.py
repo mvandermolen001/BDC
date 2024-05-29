@@ -169,30 +169,6 @@ def runserver(fn, data):
     write_results(args.fastq_files, args.csvfile, results)
 
 
-def make_client_manager(ip_address, port, authkey):
-    """ Create a manager for a client. This manager connects to a server on the
-        given address and exposes the get_job_q and get_result_q methods for
-        accessing the shared queues from the server.
-        Return a manager object.
-    """
-
-    class ServerQueueManager(BaseManager):
-        """
-        Class ServerQueueManager to manage the queue's as based on the example in
-        the multiprocessing docs
-        """
-        pass
-
-    ServerQueueManager.register('get_job_q')
-    ServerQueueManager.register('get_result_q')
-
-    manager = ServerQueueManager(address=(ip_address, port), authkey=authkey)
-    manager.connect()
-
-    print(f'Client connected to {ip_address}:{port}')
-    return manager
-
-
 def write_results(fastqfiles, csvfile, results):
     """
     Write results to screen or, if a csv file is given, write to a csv file.
@@ -233,6 +209,30 @@ def average_phred_score(quality_lines):
                             quality_line if character is not None]
         average_scores.append(sum(phred_score_line) / len(phred_score_line))
     return average_scores
+
+
+def make_client_manager(ip_address, port, authkey):
+    """ Create a manager for a client. This manager connects to a server on the
+        given address and exposes the get_job_q and get_result_q methods for
+        accessing the shared queues from the server.
+        Return a manager object.
+    """
+
+    class ServerQueueManager(BaseManager):
+        """
+        Class ServerQueueManager to manage the queue's as based on the example in
+        the multiprocessing docs
+        """
+        pass
+
+    ServerQueueManager.register('get_job_q')
+    ServerQueueManager.register('get_result_q')
+
+    manager = ServerQueueManager(address=(args.host, port), authkey=authkey)
+    manager.connect()
+
+    print(f'Client connected to {ip_address}:{port}')
+    return manager
 
 
 def runclient(num_processes):
