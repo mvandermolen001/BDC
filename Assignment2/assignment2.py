@@ -201,6 +201,7 @@ def write_results(fastqfiles, csvfile, results):
     :param results: the results of the distributive process
     """
     counter = 0
+    results = sorted(results, key=lambda dictionary: dictionary['pos'])
     if args.csvfile:
         with open(csvfile.name, 'w') as csv_file:
             writer = csv.writer(csv_file)
@@ -258,7 +259,7 @@ def run_workers(job_q, result_q, num_processes):
         temp = mp.Process(target=peon, args=(job_q, result_q))
         processes.append(temp)
         temp.start()
-    print(f"Started {processes} workers!")
+    print(f"Started {len(processes)} workers!")
     for temp in processes:
         temp.join()
 
