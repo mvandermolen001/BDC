@@ -46,7 +46,7 @@ def command_line_args():
                       dest="client")
     server_args = argparser.add_argument_group(title="Arguments when run in server mode")
     server_args.add_argument("-o", action="store", dest="csvfile",
-                             type=ap.FileType('r', encoding='UTF-8'),
+                             type=ap.FileType('w', encoding='UTF-8'),
                              required=False,
                              help="CSV file to save the output to. "
                                   "The default is output to the terminal with STDOUT")
@@ -179,7 +179,7 @@ def write_results(fastqfiles, csvfile, results):
     counter = 0
     results = sorted(results, key=lambda dictionary: dictionary['pos'])
     if args.csvfile:
-        with open(csvfile.name, 'w') as csv_file:
+        with csvfile as csv_file:
             writer = csv.writer(csv_file)
             for result in results:
                 for count, i in enumerate(result["result"]):
