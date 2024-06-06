@@ -23,8 +23,8 @@ def argument_parser():
     parser.add_argument("-n", action="store",
                         dest="n", required=True, type=int,
                         help="number of cores that will be used")
-    parser.add_argument("-o", action="store", dest="csvfile", type=ap.FileType('r', encoding='UTF-8'),
-                        required=False,
+    parser.add_argument("-o", action="store", dest="csvfile", type=ap.FileType('w', encoding='UTF-8')
+                        , required=False,
                         help="CSV file to save the output to. The default is output to the terminal with STDOUT")
     parser.add_argument("fastq_files", action="store", type=ap.FileType('r'), nargs='+',
                         help="The FASTQ files to process. Expected at least 1 Illumina fastq file")
@@ -78,7 +78,7 @@ def write_results(fastqfile, csvfile, results):
     :param results: the average scores of each column in a fastq file
     """
     if args.csvfile:
-        with open(csvfile.name, 'w') as csv_file:
+        with csvfile as csv_file:
             writer = csv.writer(csv_file)
             for count, average_scores in enumerate(results):
                 writer.writerow([fastqfile[count].name, ""])
@@ -99,3 +99,4 @@ if __name__ == '__main__':
         for column in cols_per_file:
             accumulated_results.append(pool.map(average_phred_score, column))
     write_results(args.fastq_files, args.csvfile, accumulated_results)
+
