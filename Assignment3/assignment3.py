@@ -1,3 +1,9 @@
+"""
+A script containing the tools necessary to process a chunk of a fastq file.
+From this chunk the average is calculated and along with the length of the sum
+passed to the standard output.
+"""
+
 import sys
 from itertools import islice, zip_longest
 
@@ -22,13 +28,13 @@ def gather_phred_scores(quality_lines):
     :param quality_lines: a list containing phred score character
     :return: the average score of a list of phred score characters
     """
-    phred_scores = []
-    for quality_line in quality_lines:
-        phred_scores.append([ord(character) - 33 for character in
-                            quality_line if character is not None])
-    return phred_scores
+    average_scores = []
+    for count, quality_line in enumerate(quality_lines):
+        phred_line = [ord(character) - 33 for character in quality_line if character is not None]
+        average_scores.append([sum(phred_line), len(phred_line)])
+    return average_scores
 
 
 if __name__ == "__main__":
-    scores = gather_phred_scores(fastq_lines(sys.stdin))
-    print(scores)
+    av_scores = gather_phred_scores(fastq_lines(sys.stdin))
+    print(av_scores)
