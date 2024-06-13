@@ -78,15 +78,22 @@ def write_results(fastqfile, csvfile, results):
     :param results: the average scores of each column in a fastq file
     """
     if args.csvfile:
-        with csvfile as csv_file:
-            writer = csv.writer(csv_file)
-            for count, average_scores in enumerate(results):
-                writer.writerow([fastqfile[count].name, ""])
-                for line_index, result in enumerate(average_scores):
-                    writer.writerow([line_index+1, result])
+        if len(fastqfile) > 1:
+            for fastq in fastqfile:
+                filename = fastq.name.split("/")[-1]
+                with open(f"output_{filename}.csv", "w") as csv_file:
+                    writer = csv.writer(csv_file)
+                    for count, average_scores in enumerate(results):
+                        for line_index, result in enumerate(average_scores):
+                            writer.writerow([line_index, result])
+        else:
+            with csvfile as csv_file:
+                writer = csv.writer(csv_file)
+                for count, average_scores in enumerate(results):
+                    for line_index, result in enumerate(average_scores):
+                        writer.writerow([line_index, result])
     else:
         for count, average_scores in enumerate(results):
-            print(fastqfile[count].name)
             for line_index, result in enumerate(average_scores):
                 print(line_index+1, result)
 
@@ -99,4 +106,3 @@ if __name__ == '__main__':
         for column in cols_per_file:
             accumulated_results.append(pool.map(average_phred_score, column))
     write_results(args.fastq_files, args.csvfile, accumulated_results)
-
