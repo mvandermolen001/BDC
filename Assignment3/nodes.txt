@@ -1,4 +1,2 @@
-nuc301
 bin304
 bin302
-bin303
