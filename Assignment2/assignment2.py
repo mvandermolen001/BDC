@@ -142,7 +142,7 @@ def runserver(fn, data):
         for index in range(0, len(columns), args.chunks):
             current_index = index
             shared_job_q.put({'fn': fn, 'arg': columns[current_index:current_index+args.chunks],
-                              "pos": [i+1 for i in range(current_index, current_index+args.chunks)]})
+                              "pos": [i for i in range(current_index, current_index+args.chunks)]})
 
     time.sleep(2)
     # Calculate what the length of the results should be
@@ -179,14 +179,20 @@ def write_results(fastqfiles, csvfile, results):
     counter = 0
     results = sorted(results, key=lambda dictionary: dictionary['pos'])
     if args.csvfile:
-        with csvfile as csv_file:
-            writer = csv.writer(csv_file)
-            for result in results:
-                for count, i in enumerate(result["result"]):
-                    if result["pos"][count] == 1:
-                        writer.writerow([fastqfiles[counter].name, ""])
-                        counter += 1
-                    writer.writerow([result["pos"][count], i])
+        if len(fastqfiles) > 1:
+            for fastq_file in fastqfiles:
+                filename = fastq_file.name.split("/")[-1]
+                with open(f"output_{filename}.csv", "w") as csv_file:
+                    writer = csv.writer(csv_file)
+                    for result in results:
+                        for count, i in enumerate(result["result"]):
+                            writer.writerow([result["pos"][count], i])
+        else:
+            with csvfile as csv_file:
+                writer = csv.writer(csv_file)
+                for result in results:
+                    for count, i in enumerate(result["result"]):
+                        writer.writerow([result["pos"][count], i])
         print("Saved results to %s" % csvfile.name)
     else:
         for result in results:
@@ -228,7 +234,7 @@ def make_client_manager(ip_address, port, authkey):
     ServerQueueManager.register('get_job_q')
     ServerQueueManager.register('get_result_q')
 
-    manager = ServerQueueManager(address=(args.host, port), authkey=authkey)
+    manager = ServerQueueManager(address=(ip_address, port), authkey=authkey)
     manager.connect()
 
     print(f'Client connected to {ip_address}:{port}')
