@@ -4,12 +4,12 @@ multiprocessing module with distributive computing. To do this you start a serve
 
 Both the server and client need the following arguments:
 - fastq_file: the name of the fastq file(s)
-- chunks: The amount of chunks the data will get cut up in
 - host: the hostname of the server, so for the client you will fill in the same host name
 - port: the port that gets used by the server, this needs to be the same for the client as well
 
 The arguments that are passed to just the server are:
 - o: the output file that is created ahead of time, this is optional
+- chunks: The amount of chunks the data will get cut up in
 
 The arguments that are passed to just the client are:
 - n: The amount of cores being used, the default is 1
