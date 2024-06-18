@@ -52,7 +52,7 @@ def command_line_args():
                                   "The default is output to the terminal with STDOUT")
     server_args.add_argument("fastq_files", action="store", type=ap.FileType('r'), nargs='*',
                              help="Minstens 1 Illumina Fastq Format file om te verwerken")
-    server_args.add_argument("--chunks", action="store", type=int, required=True, dest="chunks", const=2)
+    server_args.add_argument("-c", action="store", type=int, required=True, dest="chunks")
 
     client_args = argparser.add_argument_group(title="Arguments when run in client mode")
     client_args.add_argument("-n", action="store",
