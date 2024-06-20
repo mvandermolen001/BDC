@@ -4,12 +4,12 @@ multiprocessing module with distributive computing. To do this you start a serve
 
 Both the server and client need the following arguments:
 - fastq_file: the name of the fastq file(s)
+- chunks: The amount of chunks the data will get cut up in
 - host: the hostname of the server, so for the client you will fill in the same host name
 - port: the port that gets used by the server, this needs to be the same for the client as well
 
 The arguments that are passed to just the server are:
 - o: the output file that is created ahead of time, this is optional
-- chunks: The amount of chunks the data will get cut up in
 
 The arguments that are passed to just the client are:
 - n: The amount of cores being used, the default is 1
@@ -93,7 +93,7 @@ def fastq_lines(fastq):
     return columns
 
 
-def make_server_manager(port, authkey):
+def make_server_manager(host, port, authkey):
     """ Create a manager for the server, listening on the given port.
         Return a manager object with get_job_q and get_result_q methods.
     """
@@ -113,7 +113,7 @@ def make_server_manager(port, authkey):
     QueueManager.register('get_job_q', callable=lambda: job_q)
     QueueManager.register('get_result_q', callable=lambda: result_q)
 
-    manager = QueueManager(address=('', port), authkey=authkey)
+    manager = QueueManager(address=(host, port), authkey=authkey)
     manager.start()
     print(f'Server started at port {port}')
     return manager
@@ -127,7 +127,7 @@ def runserver(fn, data):
     """
     # Start a shared manager server and access its queues
     args = command_line_args()
-    manager = make_server_manager(args.port, AUTHKEY)
+    manager = make_server_manager(args.host, args.port, AUTHKEY)
     shared_job_q = manager.get_job_q()
     shared_result_q = manager.get_result_q()
     collected_column_length = []
