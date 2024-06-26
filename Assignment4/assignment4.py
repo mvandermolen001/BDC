@@ -1,8 +1,8 @@
 import csv
 from itertools import islice, zip_longest, chain
-
-from mpi4py import MPI
 import argparse as ap
+from mpi4py import MPI
+
 
 comm = MPI.COMM_WORLD
 comm_size = comm.Get_size()
@@ -52,6 +52,11 @@ def fastq_lines(fastq):
 
 
 def create_chunks(data, chunks=50):
+    """
+    Create chunks of data, so they can be easily processed as jobs later on.
+    :param data: a list of data
+    :param chunks: size of the chunks
+    """
     # Create chunks of the data
     shared_job_q = []
     collected_column_length = []
@@ -78,7 +83,12 @@ def average_phred_score(quality_lines):
     return average_scores
 
 
-def test(given_data):
+def process_scattered_data(given_data):
+    """
+    This function processed the scattered data by getting the average phred score and the positions,
+    after such they are put in a dictionary and this dictionary is appended to a list.
+    :param given_data: the column of phred scores and positions in the line
+    """
     result = []
     for data in given_data:
         result.append({'scores': average_phred_score(data['arg']), 'pos': data['pos']})
@@ -92,7 +102,6 @@ def write_results(fastqfiles, csvfile, results):
     :param csvfile: the csv_file argument
     :param results: the results of the distributive process
     """
-    counter = 0
     args = argument_parser()
     results = sorted(results, key=lambda dictionary: dictionary['pos'])
     if args.csvfile:
@@ -114,24 +123,52 @@ def write_results(fastqfiles, csvfile, results):
     else:
         for result in results:
             for count, i in enumerate(result["scores"]):
-                if result["pos"][count] == 1:
-                    print(fastqfiles[counter].name)
-                    counter += 1
                 print(result["pos"][count], i)
 
 
 def main():
+    """
+    The main function of the assignment. This function sends and receives the data from all the workers.
+    As the main function, it has no arguments.
+    """
     args = argument_parser()
-    if my_rank == 0:  # Controller
+
+    # Define the jobs to do only if you are the manager process
+    if comm.rank == 0:
         cols_per_file = fastq_reader(args)
         jobs = create_chunks(cols_per_file, 10)
-        chunked_jobs = [jobs[i::4] for i in range(4)]
-    else:  # Workers
+        chunked_jobs = [jobs[i::comm_size] for i in range(comm_size)]
+    else:
         chunked_jobs = None
-    data = comm.scatter(chunked_jobs, root=0)
-    newData = comm.gather(test(data), root=0)
-    if my_rank == 0:
-        combined_list = list(chain(*newData))
+
+    if comm.rank == 0:
+        items_per_process = [[] for _ in range(comm_size)]
+        
+        # Package jobs
+        for i, attr in enumerate(chunked_jobs):
+            target_process = i % comm_size
+            items_per_process[target_process].append(attr)
+        # Send jobs out to different workers
+        for i in range(1, comm_size):
+            comm.send(items_per_process[i], dest=i)
+        item_list = items_per_process[0]
+    else:
+        item_list = comm.recv(source=0)
+
+    # Each process has a list of items that it will process
+    processed_data = process_scattered_data(*item_list)
+
+    # Send processed data back to the manager
+    if my_rank != 0:
+        comm.send(processed_data, dest=0)
+    else:
+        # Manager process collects processed data from all workers
+        all_processed_data = [processed_data]
+        for i in range(1, comm_size):
+            data = comm.recv(source=i)
+            all_processed_data.append(data)
+        # Write the data out
+        combined_list = list(chain(*all_processed_data))
         write_results(args.fastq_files, args.csvfile, combined_list)
 
 
