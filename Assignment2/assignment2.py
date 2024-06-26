@@ -21,7 +21,8 @@ import queue
 import time
 from itertools import zip_longest, islice
 from multiprocessing.managers import BaseManager
-
+import logging
+import sys
 POISONPILL = "MEMENTOMORI"
 ERROR = "DOH"
 IP = ''
@@ -73,9 +74,12 @@ def fastq_reader(arguments):
     :return: A list of lists containing the quality characters per column
     """
     col_lines = []
+    logging.debug(f"Reading {len(arguments.fastq_files)} fastq files.")
     for fastqfile in arguments.fastq_files:
         with open(fastqfile.name, 'r') as fastq:
             col_lines.append(fastq_lines(fastq))
+            logging.debug(f"Read {fastqfile.name}")
+    logging.debug(f"Finished reading all fastq files: length {len(col_lines)}.")
     return col_lines
 
 
@@ -87,9 +91,13 @@ def fastq_lines(fastq):
     :return: the columns from the fastq file
     """
     # Read through the fastq file by quality lines.
+    logging.debug("Starting islice the fastq file.")
     rows = [line.strip() for line in islice(fastq, 3, None, 4)]
+    logging.debug("Finished islice the fastq file.")
     # zip_longest to prevent loss of characters because fastq files can be differing lengths
+    logging.debug("Starting to zip_longest the fastq file.")
     columns = [list(col) for col in zip_longest(*rows, fillvalue=None)]
+    logging.debug("Finished zipping the fastq file.")
     return columns
 
 
@@ -135,20 +143,24 @@ def runserver(fn, data):
         print("Gimme something to do here!")
         return
     print("Sending data!")
-
+    logging.debug(f"Sending data to the workers.")
     # Create chunks of the data
     for columns in data:
         collected_column_length.append(len(columns))
         for index in range(0, len(columns), args.chunks):
             current_index = index
+            logging.debug(f"Sending data to the workers: {current_index}")
             shared_job_q.put({'fn': fn, 'arg': columns[current_index:current_index+args.chunks],
                               "pos": [i for i in range(current_index, current_index+args.chunks)]})
 
+    logging.debug(f"Sent data to the workers: {current_index}")
     time.sleep(2)
     # Calculate what the length of the results should be
     length_results = round(sum(collected_column_length) / args.chunks) + 1
+    logging.debug(f"Length of results: {length_results}")
     results = []
-    while True:
+    timeout = 0
+    while timeout < 3600:
         try:
             result = shared_result_q.get_nowait()
             results.append(result)
@@ -157,7 +169,14 @@ def runserver(fn, data):
                 break
         except queue.Empty:
             time.sleep(1)
-            continue
+            timeout += 1
+            if timeout > 3600:
+                logging.debug("Server Timeout waiting for results, exiting")
+                # note; not properly shutting down the server here
+                # problem with queue?
+                sys.exit(1)
+            else:
+                continue
     # Tell the client process no more data will be forthcoming
     print("Time to kill some peons!")
     shared_job_q.put(POISONPILL)
@@ -176,6 +195,7 @@ def write_results(fastqfiles, csvfile, results):
     :param csvfile: the csv_file argument
     :param results: the results of the distributive process
     """
+    logging.debug("Writing results to screen or file.")
     counter = 0
     results = sorted(results, key=lambda dictionary: dictionary['pos'])
     if args.csvfile:
@@ -209,6 +229,7 @@ def average_phred_score(quality_lines):
     :param quality_lines: a list containing phred score character
     :return: the average score of a list of phred score characters
     """
+    logging.debug("Calculating the average phred score.")
     average_scores = []
     for quality_line in quality_lines:
         phred_score_line = [ord(character) - 33 for character in
@@ -223,7 +244,7 @@ def make_client_manager(ip_address, port, authkey):
         accessing the shared queues from the server.
         Return a manager object.
     """
-
+    logging.debug(f"Connecting client manager to server  {ip_address}:{port}")
     class ServerQueueManager(BaseManager):
         """
         Class ServerQueueManager to manage the queue's as based on the example in
@@ -235,10 +256,22 @@ def make_client_manager(ip_address, port, authkey):
     ServerQueueManager.register('get_result_q')
 
     manager = ServerQueueManager(address=(ip_address, port), authkey=authkey)
-    manager.connect()
-
-    print(f'Client connected to {ip_address}:{port}')
-    return manager
+    timeout = 0
+    while True:
+        try:
+            time.sleep(2)
+            manager.connect()
+        except ConnectionRefusedError:
+            logging.debug(f"Can't connect (yet) to {ip_address}:{port}")
+            timeout += 1
+            if timeout > 300: # 10 minutes
+                logging.debug("Client manager connection Timeout reached, exiting.")
+                sys.exit(1)
+            else:
+                continue
+        else:
+            logging.debug(f'Client connected to {ip_address}:{port}')
+            return manager
 
 
 def runclient(num_processes):
@@ -246,6 +279,7 @@ def runclient(num_processes):
     Run the client with the number of processors specified
     :param num_processes: Number of processes to use
     """
+    logging.debug("Starting the client.")
     args = command_line_args()
     manager = make_client_manager(args.host, args.port, AUTHKEY)
     job_q = manager.get_job_q()
@@ -261,6 +295,7 @@ def run_workers(job_q, result_q, num_processes):
     :param result_q: The queue where the results are gathered in
     :param num_processes: Number of processors to use
     """
+    logging.debug("Starting the workers.")
     processes = []
     for _ in range(num_processes):
         temp = mp.Process(target=peon, args=(job_q, result_q))
@@ -278,6 +313,7 @@ def peon(job_q, result_q):
     :param result_q: The queue where the results are gathered in
     """
     my_name = mp.current_process().name
+    logging.debug(f"Starting worker {my_name}")
     while True:
         try:
             job = job_q.get_nowait()
@@ -286,8 +322,10 @@ def peon(job_q, result_q):
                 print("Aaaaaaargh", my_name)
                 return
             else:
+                logging.debug(f"Worker {my_name} is working on {job['pos']}")
                 try:
                     result = job['fn'](job['arg'])
+                    logging.debug(f"Worker {my_name} is done with {job['pos']}")
                     result_q.put({'result': result, "pos": job["pos"]})
                 except NameError:
                     print("Can't find yer fun Bob!")
@@ -299,15 +337,27 @@ def peon(job_q, result_q):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG,
+                        stream=sys.stderr,
+                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
     args = command_line_args()
     if args.server:
         # Only read when server is called not when workers are called
+        logging.info("Starting the program in server mode.")
+        logging.debug("Reading the fastq files.")
         cols_per_file = fastq_reader(args)
+        logging.debug(f"Starting the server with {len(cols_per_file)} columns.")
         server = mp.Process(target=runserver, args=(average_phred_score, cols_per_file))
         server.start()
+        logging.debug("Waiting on Server.")
         server.join()
+        logging.debug("Server has finished.")
     time.sleep(1)
     if args.client:
+        logging.info("Starting the program in client mode.")
         client = mp.Process(target=runclient, args=(args.n,))
         client.start()
+        logging.debug("Waiting on Client finished.")
         client.join()
+        logging.debug("Client has finished.")
