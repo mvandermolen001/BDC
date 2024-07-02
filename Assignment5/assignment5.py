@@ -1,3 +1,8 @@
+"""
+A script containing the functions and code to create a dataframe from a genbank feature file.
+It saves the coding features into a separate dataframe file and prints the answers to the
+assignment's questions.
+"""
 import re
 
 from pyspark.sql import SparkSession
@@ -51,7 +56,7 @@ def main():
     """
     # Location of archea file
     archea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.3.genomic.gbff"
-    # Get the rows of each features 
+    # Get the rows of each features
     archea_rows = extract_features(archea_file)
     spark = SparkSession.builder.getOrCreate()
     df = spark.createDataFrame(archea_rows)
