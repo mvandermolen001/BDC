@@ -45,7 +45,7 @@ def extract_features(gbff_file):
                         Row(type=1, type_inf=feature.type,
                             start=lower, end=upper, length=length, organism_name=organism,
                             record_name=gb_record.name))
-                elif feature.type == "ncRNA" or feature.type == "rRNA":
+                elif feature.type in ('ncRNA', 'rRNA'):
                     rows.append(
                         Row(type=0,  type_inf=feature.type,
                             start=lower, end=upper, length=length, organism_name=organism,
@@ -62,22 +62,22 @@ def main():
     # Get the rows of each features
     archea_rows = extract_features(archea_file)
     spark = SparkSession.builder.getOrCreate()
-    df = spark.createDataFrame(archea_rows)
+    archae_dataframe = spark.createDataFrame(archea_rows)
 
     # Average amount of features per archae
-    df.groupby("organism_name", "record_name").count().groupby("organism_name").avg("count").show()
+    archae_dataframe.groupby("organism_name", "record_name").count().groupby("organism_name").avg("count").show()
     # Minimum and maximum length of proteins per archae
-    df.filter("type == 1").groupby("organism_name").agg({'length': 'min'}).show()
-    df.filter("type == 1").groupby("organism_name").agg({'length': 'max'}).show()
+    archae_dataframe.filter("type == 1").groupby("organism_name").agg({'length': 'min'}).show()
+    archae_dataframe.filter("type == 1").groupby("organism_name").agg({'length': 'max'}).show()
     # Average length of a feature
-    df.agg({'length': 'mean'}).show()
+    archae_dataframe.agg({'length': 'mean'}).show()
     # Ratio between coding and non coding features
-    coding_count = df.filter("type == 1").count()
+    coding_count = archae_dataframe.filter("type == 1").count()
     # Add one to prevent division by zero
-    non_coding_count = df.filter("type == 0").count() + 1
+    non_coding_count = archae_dataframe.filter("type == 0").count() + 1
     print(f"This is the ratio of coding to non coding features in this file {coding_count / non_coding_count}")
     # Remove all non-coding features and save this into a seperate dataframe
-    coding_df = df.filter("type == 1")
+    coding_df = archae_dataframe.filter("type == 1")
     coding_df.write.save("coding_dataframe")
 
 
