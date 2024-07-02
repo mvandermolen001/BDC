@@ -37,15 +37,18 @@ def extract_features(gbff_file):
                 lower, upper, length = get_length(str(feature.location))
                 if feature.type == "gene":
                     rows.append(
-                        Row(type=1, start=lower, end=upper, length=length, organism_name=organism,
+                        Row(type=1, type_inf=feature.type,
+                            start=lower, end=upper, length=length, organism_name=organism,
                             record_name=gb_record.name))
                 elif feature.type == "CDS":
                     rows.append(
-                        Row(type=1, start=lower, end=upper, length=length, organism_name=organism,
+                        Row(type=1, type_inf=feature.type,
+                            start=lower, end=upper, length=length, organism_name=organism,
                             record_name=gb_record.name))
                 elif feature.type == "ncRNA" or feature.type == "rRNA":
                     rows.append(
-                        Row(type=0, start=lower, end=upper, length=length, organism_name=organism,
+                        Row(type=0,  type_inf=feature.type,
+                            start=lower, end=upper, length=length, organism_name=organism,
                             record_name=gb_record.name))
     return rows
 
@@ -70,7 +73,8 @@ def main():
     df.agg({'length': 'mean'}).show()
     # Ratio between coding and non coding features
     coding_count = df.filter("type == 1").count()
-    non_coding_count = df.filter("type == 0").count()
+    # Add one to prevent division by zero
+    non_coding_count = df.filter("type == 0").count() + 1
     print(f"This is the ratio of coding to non coding features in this file {coding_count / non_coding_count}")
     # Remove all non-coding features and save this into a seperate dataframe
     coding_df = df.filter("type == 1")
