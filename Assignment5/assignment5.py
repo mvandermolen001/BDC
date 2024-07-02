@@ -24,15 +24,15 @@ def extract_features(gbff_file):
                 if feature.type == "gene":
                     rows.append(
                         Row(type=1, start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
+                            record_name=gb_record.name))
                 elif feature.type == "CDS":
                     rows.append(
                         Row(type=1, start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
+                            record_name=gb_record.name))
                 elif feature.type == "ncRNA" or feature.type == "rRNA":
                     rows.append(
                         Row(type=0, start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
+                            record_name=gb_record.name))
     return rows
 
 
@@ -46,7 +46,8 @@ def extract_gb_records(gbff_file):
 def main():
     # Get a list of all .gbff files in a directory
     archea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.3.genomic.gbff"
-    archea_rows = extract_features(archea_file)
+    test_file = "/homes/mvandermolen/thema_12/BDC/Assignment5/test_files/test_2.gbff"
+    archea_rows = extract_features(test_file)
     spark = SparkSession.builder.getOrCreate()
     df = spark.createDataFrame(archea_rows)
 
