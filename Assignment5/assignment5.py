@@ -36,18 +36,10 @@ def extract_features(gbff_file):
     return rows
 
 
-def extract_gb_records(gbff_file):
-    gb_records = []
-    for gb_record in SeqIO.parse(open(gbff_file, "r"), "genbank"):
-        gb_records.append(gb_records)
-    return gb_records
-
-
 def main():
     # Get a list of all .gbff files in a directory
     archea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.3.genomic.gbff"
-    test_file = "/homes/mvandermolen/thema_12/BDC/Assignment5/test_files/test_2.gbff"
-    archea_rows = extract_features(test_file)
+    archea_rows = extract_features(archae_file)
     spark = SparkSession.builder.getOrCreate()
     df = spark.createDataFrame(archea_rows)
 
