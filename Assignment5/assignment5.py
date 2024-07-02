@@ -1,5 +1,4 @@
 import re
-import glob
 
 from pyspark.sql import SparkSession
 from pyspark.sql import Row
@@ -7,9 +6,19 @@ from Bio import SeqIO
 
 
 def extract_features(gbff_file):
+    """
+    Extract features from a genbank feature file using the Bio python library
+    :param gbff_file: a genbank feature file
+    :return: a list of rows to use in the creation of a spark dataframe
+    """
     rows = []
 
     def get_length(length_part):
+        """
+        Get the length of a given feature
+        :param length_part: the feature's location
+        :return: the start, end, and length of the feature
+        """
         length_part = re.sub('[^0-9:]', '', length_part)
         lower = int(length_part.split(":")[0])
         upper = int(length_part.split(":")[1])
@@ -37,9 +46,13 @@ def extract_features(gbff_file):
 
 
 def main():
-    # Get a list of all .gbff files in a directory
+    """
+    Main function that creates the dataframe and gets the answers to the assignments questions
+    """
+    # Location of archea file
     archea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.3.genomic.gbff"
-    archea_rows = extract_features(archae_file)
+    # Get the rows of each features 
+    archea_rows = extract_features(archea_file)
     spark = SparkSession.builder.getOrCreate()
     df = spark.createDataFrame(archea_rows)
 
