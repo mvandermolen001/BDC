@@ -33,7 +33,7 @@ def extract_features(gbff_file):
         for feature in gb_record.features:
             if feature.qualifiers.get("organism") is not None:
                 organism = feature.qualifiers.get("organism")[0]
-            if feature.type in ("CDS", "ncRNA", "rRNA", "gene"):
+            if feature.type in ("CDS", "ncRNA", "rRNA", "gene") and "join" not in str(feature.location):
                 lower, upper = get_length(str(feature.location))
                 if feature.type == "gene":
                     rows.append(
@@ -70,17 +70,17 @@ def main():
 
     non_cryptic_genes = genes.join(cds, on=genes.locus_tag == cds.locus_tag, how="left_semi")
     filtered_dataframe = archaea_dataframe.join(non_cryptic_genes, on=["locus_tag", "type_inf"], how="left_anti")
-    filtered_dataframe = filtered_dataframe.withColumn("length", 
+    filtered_dataframe = filtered_dataframe.withColumn("length",
                                                        filtered_dataframe["end"] - filtered_dataframe["start"])
-
+    filtered_dataframe.sort("length", ascending=False).show()
     # Average amount of features in a genome
     feature_amount = filtered_dataframe.count()
     genome_amount = filtered_dataframe.select("record_name").distinct().count()
     print(f"The average amount of features per genome {feature_amount / genome_amount}")
 
     # Minimum and maximum length of proteins of all organisms
-    minimum = filtered_dataframe.filter("type == 1").agg({'length': 'min'}).collect()
-    maximum = filtered_dataframe.filter("type == 1").agg({'length': 'max'}).collect()
+    minimum = filtered_dataframe.where("type = 1").agg({'length': 'min'}).collect()
+    maximum = filtered_dataframe.where("type = 1").agg({'length': 'max'}).collect()
     print(f"Minimum length of a coding sequence is {minimum[0][0]}")
     print(f"Maximum length of a coding sequence is {maximum[0][0]}")
 
@@ -95,7 +95,7 @@ def main():
     print(f"This is the ratio of coding to non coding features in this file {coding_count / non_coding_count}")
 
     # Remove all non-coding features and save this into a separate dataframe
-    coding_df = filtered_dataframe.filter("type == 0")
+    coding_df = filtered_dataframe.where("type = 1")
     coding_df.write.save("coding_dataframe")
 
 
