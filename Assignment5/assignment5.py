@@ -22,34 +22,34 @@ def extract_features(gbff_file):
         """
         Get the length of a given feature
         :param length_part: the feature's location
-        :return: the start, end, and length of the feature
+        :return: the start, end
         """
         length_part = re.sub('[^0-9:]', '', length_part)
         lower = int(length_part.split(":")[0])
         upper = int(length_part.split(":")[1])
-        return lower, upper, upper - lower
+        return lower, upper
 
     for gb_record in SeqIO.parse(open(gbff_file, "r"), "genbank"):
         for feature in gb_record.features:
             if feature.qualifiers.get("organism") is not None:
                 organism = feature.qualifiers.get("organism")[0]
             if feature.type in ("CDS", "ncRNA", "rRNA", "gene"):
-                lower, upper, length = get_length(str(feature.location))
+                lower, upper = get_length(str(feature.location))
                 if feature.type == "gene":
                     rows.append(
-                        Row(type=2, type_inf=feature.type,
-                            start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name))
+                        Row(type=0, type_inf=feature.type,
+                            start=lower, end=upper, organism_name=organism,
+                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
                 elif feature.type == "CDS":
                     rows.append(
                         Row(type=1, type_inf=feature.type,
-                            start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name))
+                            start=lower, end=upper, organism_name=organism,
+                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
                 elif feature.type in ('ncRNA', 'rRNA'):
                     rows.append(
                         Row(type=0,  type_inf=feature.type,
-                            start=lower, end=upper, length=length, organism_name=organism,
-                            record_name=gb_record.name))
+                            start=lower, end=upper, organism_name=organism,
+                            record_name=gb_record.name, locus_tag=feature.qualifiers.get("locus_tag")[0]))
     return rows
 
 
@@ -58,29 +58,42 @@ def main():
     Main function that creates the dataframe and gets the answers to the assignments questions
     """
     # Location of archea file
-    archaea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.3.genomic.gbff"
-    test_file = "/homes/mvandermolen/thema_12/BDC/Assignment5/test_files/test_2.gbff"
+    archaea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.1.genomic.gbff"
     # Get the rows of each features
-    archaea_rows = extract_features(test_file)
+    archaea_rows = extract_features(archaea_file)
     spark = SparkSession.builder.getOrCreate()
     archaea_dataframe = spark.createDataFrame(archaea_rows)
 
-    # TO DO: REMOVE GENES WHICH HAVE A CDS, KEEP GENES THAT DON'T AND ASSIGN NON-CODING
+    cds = archaea_dataframe.filter("type_inf == 'CDS'")
+    genes = archaea_dataframe.filter("type_inf == 'gene'")
 
-    # Average amount of features per archaea
-    archaea_dataframe.groupby("organism_name", "record_name").count().groupby("organism_name").avg("count").show()
-    # Minimum and maximum length of proteins per archaea
-    archaea_dataframe.filter("type == 1").groupby("organism_name").agg({'length': 'min'}).show()
-    archaea_dataframe.filter("type == 1").groupby("organism_name").agg({'length': 'max'}).show()
+    non_cryptic_genes = genes.join(cds, on=genes.locus_tag == cds.locus_tag, how="left_semi")
+    filtered_dataframe = archaea_dataframe.join(non_cryptic_genes, on=["locus_tag", "type_inf"], how="left_anti")
+    filtered_dataframe = filtered_dataframe.withColumn("length", filtered_dataframe["end"] - filtered_dataframe["start"])
+
+    # Average amount of features in a genome
+    feature_amount = filtered_dataframe.count()
+    genome_amount = filtered_dataframe.select("record_name").distinct().count()
+    print(f"The average amount of features per genome {feature_amount / genome_amount}")
+    
+    # Minimum and maximum length of proteins of all organisms
+    minimum = filtered_dataframe.filter("type == 1").agg({'length': 'min'}).collect()
+    maximum = filtered_dataframe.filter("type == 1").agg({'length': 'max'}).collect()
+    print(f"Minimum length of a coding sequence is {minimum[0][0]}")
+    print(f"Maximum length of a coding sequence is {maximum[0][0]}")
+    
     # Average length of a feature
-    archaea_dataframe.agg({'length': 'mean'}).show()
+    average_length = filtered_dataframe.agg({'length': 'mean'}).collect()
+    print(f"The average length of a feature is {average_length[0][0]}")
+    
     # Ratio between coding and non coding features
-    coding_count = archaea_dataframe.filter("type == 1").count()
+    coding_count = filtered_dataframe.filter("type == 1").count()
     # Add one to prevent division by zero
-    non_coding_count = archaea_dataframe.filter("type == 0").count() + 1
+    non_coding_count = filtered_dataframe.filter("type == 0").count() + 1
     print(f"This is the ratio of coding to non coding features in this file {coding_count / non_coding_count}")
+    
     # Remove all non-coding features and save this into a seperate dataframe
-    coding_df = archaea_dataframe.filter("type == 1")
+    coding_df = filtered_dataframe.filter("type == 0")
     coding_df.write.save("coding_dataframe")
 
 
