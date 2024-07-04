@@ -22,7 +22,7 @@ def extract_features(gbff_file):
         """
         Get the length of a given feature
         :param length_part: the feature's location
-        :return: the start, end
+        :return: the start, end, and length of the feature
         """
         length_part = re.sub('[^0-9:]', '', length_part)
         lower = int(length_part.split(":")[0])
@@ -59,6 +59,7 @@ def main():
     """
     # Location of archea file
     archaea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.1.genomic.gbff"
+    test_file = "/homes/mvandermolen/thema_12/BDC/Assignment5/test_files/test.gbff"
     # Get the rows of each features
     archaea_rows = extract_features(archaea_file)
     spark = SparkSession.builder.getOrCreate()
@@ -69,30 +70,31 @@ def main():
 
     non_cryptic_genes = genes.join(cds, on=genes.locus_tag == cds.locus_tag, how="left_semi")
     filtered_dataframe = archaea_dataframe.join(non_cryptic_genes, on=["locus_tag", "type_inf"], how="left_anti")
-    filtered_dataframe = filtered_dataframe.withColumn("length", filtered_dataframe["end"] - filtered_dataframe["start"])
+    filtered_dataframe = filtered_dataframe.withColumn("length", 
+                                                       filtered_dataframe["end"] - filtered_dataframe["start"])
 
     # Average amount of features in a genome
     feature_amount = filtered_dataframe.count()
     genome_amount = filtered_dataframe.select("record_name").distinct().count()
     print(f"The average amount of features per genome {feature_amount / genome_amount}")
-    
+
     # Minimum and maximum length of proteins of all organisms
     minimum = filtered_dataframe.filter("type == 1").agg({'length': 'min'}).collect()
     maximum = filtered_dataframe.filter("type == 1").agg({'length': 'max'}).collect()
     print(f"Minimum length of a coding sequence is {minimum[0][0]}")
     print(f"Maximum length of a coding sequence is {maximum[0][0]}")
-    
+
     # Average length of a feature
     average_length = filtered_dataframe.agg({'length': 'mean'}).collect()
     print(f"The average length of a feature is {average_length[0][0]}")
-    
+
     # Ratio between coding and non coding features
     coding_count = filtered_dataframe.filter("type == 1").count()
     # Add one to prevent division by zero
     non_coding_count = filtered_dataframe.filter("type == 0").count() + 1
     print(f"This is the ratio of coding to non coding features in this file {coding_count / non_coding_count}")
-    
-    # Remove all non-coding features and save this into a seperate dataframe
+
+    # Remove all non-coding features and save this into a separate dataframe
     coding_df = filtered_dataframe.filter("type == 0")
     coding_df.write.save("coding_dataframe")
 
