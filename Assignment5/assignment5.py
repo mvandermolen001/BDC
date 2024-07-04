@@ -59,7 +59,6 @@ def main():
     """
     # Location of archea file
     archaea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.1.genomic.gbff"
-    test_file = "/homes/mvandermolen/thema_12/BDC/Assignment5/test_files/test.gbff"
     # Get the rows of each features
     archaea_rows = extract_features(archaea_file)
     spark = SparkSession.builder.getOrCreate()
