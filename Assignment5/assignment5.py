@@ -71,7 +71,6 @@ def main():
     filtered_dataframe = archaea_dataframe.join(non_cryptic_genes, on=["locus_tag", "type_inf"], how="left_anti")
     filtered_dataframe = filtered_dataframe.withColumn("length",
                                                        filtered_dataframe["end"] - filtered_dataframe["start"])
-    filtered_dataframe.sort("length", ascending=False).show()
     # Average amount of features in a genome
     feature_amount = filtered_dataframe.count()
     genome_amount = filtered_dataframe.select("record_name").distinct().count()
