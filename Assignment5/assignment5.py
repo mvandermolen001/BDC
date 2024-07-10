@@ -61,7 +61,7 @@ def main():
     archaea_file = "/data/datasets/NCBI/refseq/ftp.ncbi.nlm.nih.gov/refseq/release/archaea/archaea.1.genomic.gbff"
     # Get the rows of each features
     archaea_rows = extract_features(archaea_file)
-    spark = SparkSession.builder.getOrCreate()
+    spark = SparkSession.builder.master("local[16]").config("spark.executor.memory","128g").config('spark.driver.memory','128g').getOrCreate()
     archaea_dataframe = spark.createDataFrame(archaea_rows)
 
     cds = archaea_dataframe.filter("type_inf == 'CDS'")
